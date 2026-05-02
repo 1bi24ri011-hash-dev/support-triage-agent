@@ -1,129 +1,80 @@
-# Multi-Domain Support Triage Agent
+# 🚀 Multi-Domain Support Triage Agent
 
-A terminal-based support triage agent that classifies and responds to support tickets
-across **HackerRank**, **Claude (Anthropic)**, and **Visa** using a curated support corpus
-and the Claude API.
+An intelligent support triage system that classifies, prioritizes, and safely responds to customer support tickets using a hybrid rule-based and LLM-driven approach.
 
 ---
 
-## Architecture
+## 📌 Overview
 
-```
-support_issues.csv
-       │
-       ▼
-  ┌──────────────────────────────────────────┐
-  │  Pre-flight Safety Checks (no LLM)       │
-  │  ├─ Prompt injection / manipulation?     │
-  │  └─ High-risk keywords? (fraud, hack…)   │
-  └────────────────┬─────────────────────────┘
-                   │
-                   ▼
-  ┌──────────────────────────────────────────┐
-  │  Corpus Retrieval                         │
-  │  ├─ Select domains by company field       │
-  │  └─ Score & rank relevant snippets        │
-  └────────────────┬─────────────────────────┘
-                   │
-                   ▼
-  ┌──────────────────────────────────────────┐
-  │  Claude API (claude-sonnet-4)             │
-  │  System: strict JSON-only triage prompt   │
-  │  User:   ticket + corpus + risk hint      │
-  └────────────────┬─────────────────────────┘
-                   │
-                   ▼
-         triage_output.csv
-  (status, product_area, response,
-   justification, request_type)
-```
+This project implements a terminal-based support triage agent capable of handling support queries across multiple domains:
+
+- HackerRank  
+- Claude  
+- Visa  
+
+The system processes incoming support tickets, determines their type, evaluates risk and urgency, retrieves relevant support documentation, and decides whether to respond automatically or escalate to a human agent.
 
 ---
 
-## Setup
+## 🧠 Approach
 
-**Requirements:** Python 3.8+, no external packages needed (stdlib only).
+The system follows a hybrid pipeline combining rule-based filtering with AI-driven reasoning:
 
+### 1. Risk Detection
+- Identifies sensitive issues such as:
+  - Fraud
+  - Billing disputes
+  - Account access problems
+- High-risk cases are escalated immediately
+
+### 2. Invalid Query Detection
+- Filters out:
+  - Malicious inputs
+  - Irrelevant or nonsensical queries
+
+### 3. Corpus Retrieval
+- Matches user queries with relevant support documentation
+- Uses keyword-based scoring to identify best-fit content
+
+### 4. LLM-Based Response Generation
+- Generates responses using a constrained prompt
+- Ensures answers are:
+  - Grounded in the provided support corpus
+  - Safe and non-hallucinated
+
+### 5. Decision Engine
+- Final output decision:
+  - ✅ Respond directly
+  - ⚠️ Escalate to human support
+
+---
+
+## ⚙️ How It Works
+
+1. Input CSV file containing support issues  
+2. Each issue is analyzed and classified  
+3. System determines:
+   - Request type  
+   - Product area  
+   - Risk level  
+4. Relevant documentation is retrieved  
+5. Response is generated OR escalated  
+6. Output is saved as structured CSV  
+
+---
+
+## 🛠️ Tech Stack
+
+- Python  
+- Rule-based NLP (keyword detection)  
+- LLM Integration (Claude API)  
+- CSV Processing  
+
+---
+
+## ▶️ How to Run
+
+### 1. Clone the repository
 ```bash
-# Set your Anthropic API key
-export ANTHROPIC_API_KEY="sk-ant-..."
-
-# Clone / copy the project folder
+git clone https://github.com/1bi24ri011-hash-dev/support-triage-agent.git
 cd support-triage-agent
-```
-
----
-
-## Usage
-
-### Process a CSV file
-
-```bash
-python agent.py --input support_issues.csv --output results.csv
-```
-
-With sample reference file:
-```bash
-python agent.py \
-  --input support_issues.csv \
-  --output results.csv \
-  --sample sample_support_issues.csv
-```
-
-### Interactive single-ticket mode
-
-```bash
-python agent.py --interactive
-```
-
-You'll be prompted for company, subject, and issue text. The agent prints the full JSON result immediately.
-
-### Options
-
-| Flag | Default | Description |
-|---|---|---|
-| `--input / -i` | — | Input CSV path |
-| `--output / -o` | `triage_output.csv` | Output CSV path |
-| `--sample / -s` | — | Sample CSV (for format reference) |
-| `--interactive` | off | Single-ticket interactive mode |
-| `--delay` | `0.5` | Seconds between API calls (rate-limit buffer) |
-| `--verbose` | off | Extra debug output |
-
----
-
-## Input CSV schema
-
-| Field | Required | Notes |
-|---|---|---|
-| `issue` | ✅ | Main ticket body |
-| `subject` | ❌ | May be blank, noisy, or misleading |
-| `company` | ✅ | `HackerRank`, `Claude`, `Visa`, or `None` |
-
----
-
-## Output CSV schema
-
-| Field | Values |
-|---|---|
-| `status` | `replied` \| `escalated` |
-| `product_area` | Short string e.g. `billing_subscription` |
-| `response` | User-facing message grounded in corpus |
-| `justification` | Internal reasoning for the decision |
-| `request_type` | `product_issue` \| `feature_request` \| `bug` \| `invalid` |
-
----
-
-## Safety features
-
-1. **Prompt injection detection** — pattern-matched before the LLM sees the ticket
-2. **Risk keyword escalation** — fraud, legal threats, account compromise → always escalated
-3. **Corpus-grounded responses** — the LLM is instructed (and the corpus constrains it) to never invent policies
-4. **Graceful API errors** — failures produce a safe escalation response, never a crash
-5. **Company inference** — when `company=None`, the LLM infers from content
-
----
-
-## Extending the corpus
-
-Edit the `CORPUS` dict in `agent.py`. Each company → area → list of fact strings.
-The retrieval step scores snippets by keyword overlap with the issue text.
